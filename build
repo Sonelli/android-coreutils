@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Bomb out on any errors
+set -e 
+
+# Setup the environment
+export HOME=/home/admin
+export PATH=$PATH:$HOME/droid/bin
+export ANDROID_NDK=~/droid/android-ndk
+export TARGET=/target
+
+# Download the latest version of inetutils
+if [ ! -f ~/inetutils-1.9.tar.gz ]; then
+    wget -O ~/inetutils-1.9.tar.gz http://ftp.gnu.org/gnu/inetutils/inetutils-1.9.tar.gz
+fi
+
+for ARCH_NAME in mips arm x86; do
+    export ARCH_NAME
+
+    for BIN_TYPE in nopie pie; do
+
+        # Start each build with a fresh source copy
+        cd ~
+        rm -rf ~/inetutils-1.9
+        tar xvzf ~/inetutils-1.9.tar.gz
+        cd ~/inetutils-1.9
+
+        patch -p0 < ~/telnet-android.patch
+
+        case "$ARCH_NAME" in
+            
+            x86)
+                echo "Compiling for x86"
+                HOST=i686-linux-android
+                ;;
+            arm)
+                echo "Compiling for ARM"
+                HOST=arm-linux
+                ;;
+            mips)
+                echo "Compiling for MIPS"
+                HOST=mipsel-linux-android
+                ;;
+
+        esac
+
+        export CC=~/droid/bin/agcc
+        
+        if [ $BIN_TYPE == "pie" ]; then
+            export CFLAGS="-g -O2 -pie -fPIE"
+        else 
+            export CFLAGS="-g -O2"
+        fi
+
+        ./configure --host=$HOST --disable-ftp --disable-ftpd --disable-telnetd --disable-talk --disable-talkd --disable-rlogin --disable-rlogind --disable-rsh --disable-rshd --disable-rexec --disable-rexecd --disable-rcp --disable-hostname --disable-tftp --disable-tftpd --disable-ping --disable-ping6 --disable-logger --disable-syslogd --disable-inetd --disable-whois --disable-uucpd --disable-ifconfig --disable-traceroute
+        echo "#undef HAVE_STRUCT_UTMP_UT_TYPE" >> config.h
+
+        make
+        astrip telnet/telnet
+        cp telnet/telnet $TARGET/telnet-$ARCH_NAME-$BIN_TYPE
+
+    done
+
+done
