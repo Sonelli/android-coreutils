@@ -1,0 +1,138 @@
+diff -ru configure configure
+--- configure	2013-12-13 15:05:30.000000000 +0000
++++ configure	2014-07-09 06:56:14.390000000 +0100
+@@ -40077,11 +40077,11 @@
+   esac
+ fi
+ 
+-if test -z "$ac_list_mounted_fs"; then
+-  as_fn_error $? "could not determine how to read list of mounted file systems" "$LINENO" 5
++#if test -z "$ac_list_mounted_fs"; then
++  # as_fn_error $? "could not determine how to read list of mounted file systems" "$LINENO" 5
+   # FIXME -- no need to abort building the whole package
+   # Can't build mountlist.c or anything that needs its functions
+-fi
++#fi
+ 
+ if test $ac_list_mounted_fs = found; then :
+   gl_cv_list_mounted_fs=yes
+diff -ru lib/fts.c lib/fts.c
+--- lib/fts.c	2013-12-04 14:53:33.000000000 +0000
++++ lib/fts.c	2014-07-09 06:58:10.030000000 +0100
+@@ -377,7 +377,7 @@
+ }
+ 
+ FTS *
+-fts_open (char * const *argv,
++_fts_open (char * const *argv,
+           register int options,
+           int (*compar) (FTSENT const **, FTSENT const **))
+ {
+diff -ru lib/xfts.c lib/xfts.c
+--- lib/xfts.c	2013-12-04 14:48:30.000000000 +0000
++++ lib/xfts.c	2014-07-09 06:58:01.970000000 +0100
+@@ -27,13 +27,13 @@
+ #include "xalloc.h"
+ #include "xfts.h"
+ 
+-/* Fail with a proper diagnostic if fts_open fails.  */
++/* Fail with a proper diagnostic if_fts_open fails.  */
+ 
+ FTS *
+ xfts_open (char * const *argv, int options,
+            int (*compar) (const FTSENT **, const FTSENT **))
+ {
+-  FTS *fts = fts_open (argv, options | FTS_CWDFD, compar);
++  FTS *fts =_fts_open (argv, options | FTS_CWDFD, compar);
+   if (fts == NULL)
+     {
+       /* This can fail in two ways: out of memory or with errno==EINVAL,
+diff -ru src/dd.c src/dd.c
+--- src/dd.c	2013-12-04 14:48:30.000000000 +0000
++++ src/dd.c	2014-07-09 06:57:04.280000000 +0100
+@@ -1551,7 +1551,7 @@
+ 
+ #ifdef __linux__
+ 
+-# include <sys/mtio.h>
++# include <linux/mtio.h>
+ 
+ # define MT_SAME_POSITION(P, Q) \
+    ((P).mt_resid == (Q).mt_resid \
+diff -ru src/du.c src/du.c
+--- src/du.c	2013-12-04 14:48:30.000000000 +0000
++++ src/du.c	2014-07-09 06:57:33.110000000 +0100
+@@ -61,6 +61,8 @@
+ # define FTS_CROSS_CHECK(Fts)
+ #endif
+ 
++#define read_file_system_list(bool) 0
++
+ /* A set of dev/ino pairs to help identify files and directories
+    whose sizes have already been counted.  */
+ static struct di_set *di_files;
+diff -ru src/ls.c src/ls.c
+--- src/ls.c	2013-12-04 14:48:30.000000000 +0000
++++ src/ls.c	2014-07-09 07:00:49.650000000 +0100
+@@ -2097,12 +2097,13 @@
+                 }
+             }
+         }
+-
++#ifdef HAVE_NL_LANGINFO
+       /* Note we leave %5b etc. alone so user widths/flags are honored.  */
+       if (strstr (long_time_format[0], "%b")
+           || strstr (long_time_format[1], "%b"))
+         if (!abmon_init ())
+           error (0, 0, _("error initializing month strings"));
++#endif
+     }
+ 
+   return optind;
+diff -ru src/pinky.c src/pinky.c
+--- src/pinky.c	2013-12-04 14:48:30.000000000 +0000
++++ src/pinky.c	2014-07-09 06:56:46.750000000 +0100
+@@ -242,13 +242,13 @@
+         printf (" %19s", _("        ???"));
+       else
+         {
+-          char *const comma = strchr (pw->pw_gecos, ',');
++          char *const comma = strchr ("", ',');
+           char *result;
+ 
+           if (comma)
+             *comma = '\0';
+ 
+-          result = create_fullname (pw->pw_gecos, pw->pw_name);
++          result = create_fullname ("", pw->pw_name);
+           printf (" %-19.19s", result);
+           free (result);
+         }
+@@ -323,13 +323,13 @@
+     }
+   else
+     {
+-      char *const comma = strchr (pw->pw_gecos, ',');
++      char *const comma = strchr ("", ',');
+       char *result;
+ 
+       if (comma)
+         *comma = '\0';
+ 
+-      result = create_fullname (pw->pw_gecos, pw->pw_name);
++      result = create_fullname ("", pw->pw_name);
+       printf (" %s", result);
+       free (result);
+     }
+diff -ru src/stat.c src/stat.c
+--- src/stat.c	2013-12-13 14:12:46.000000000 +0000
++++ src/stat.c	2014-07-09 06:57:51.290000000 +0100
+@@ -73,6 +73,8 @@
+ #include "find-mount-point.h"
+ #include "xvasprintf.h"
+ 
++#define read_file_system_list(bool) 0
++
+ #if USE_STATVFS
+ # define STRUCT_STATVFS struct statvfs
+ # define STRUCT_STATXFS_F_FSID_IS_INTEGER STRUCT_STATVFS_F_FSID_IS_INTEGER

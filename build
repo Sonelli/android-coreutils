@@ -28,6 +28,8 @@ for ARCH_NAME in x86 arm mips; do
         tar xvf ~/coreutils-8.22.tar.xz
         cd ~/coreutils-8.22
 
+        patch -p0 < ~/coreutils-android.patch
+
         case "$ARCH_NAME" in
             
             x86)
@@ -58,18 +60,11 @@ for ARCH_NAME in x86 arm mips; do
 
 
         export FORCE_UNSAFE_CONFIGURE=1
-        sed -i 's/as_fn_error $? "could not determine.*/false/g' configure
         ./configure --host=$HOST --with-gnu-ld=ald
-        echo "#define HAVE_MKFIFO 1" >> lib/config.h
-
-        sed -i 's/pw->pw_gecos/""/g' src/pinky.c
-        sed -i 's/sys\/mtio.h/linux\/mtio.h/g' src/dd.c
-        sed -i 's/#define PROGRAM_NAME "du"/#define PROGRAM_NAME "du"\n#define read_file_system_list(bool) 0/g' src/du.c
-        sed -i 's/#define PROGRAM_NAME "stat"/#define PROGRAM_NAME "stat"\n#define read_file_system_list(bool) 0/g' src/stat.c
-        sed -i 's/ fts_open /_fts_open /g' lib/xfts.c
-        sed -i 's/^fts_open /_fts_open /g' lib/fts.c
-        sed -i 's/^MANS = .*//g' Makefile
         
+        echo "#define HAVE_MKFIFO 1" >> lib/config.h
+        sed -i 's/^MANS = .*//g' Makefile
+
         make
 
         for MODULE in $(cat ~/modules); do
