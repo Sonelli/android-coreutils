@@ -9,23 +9,24 @@ export PATH=$PATH:$HOME/droid/bin
 export ANDROID_NDK=~/droid/android-ndk
 export TARGET=/target
 
-# Download the latest version of inetutils
-if [ ! -f ~/inetutils-1.9.tar.gz ]; then
-    wget -O ~/inetutils-1.9.tar.gz http://ftp.gnu.org/gnu/inetutils/inetutils-1.9.tar.gz
+# Update from our repo
+cd $HOME/droid/bin && git pull https://github.com/sonelli/android-ports-tools.git master
+
+# Download the latest version of coreutils
+if [ ! -f ~/coreutils-8.22.tar.xz ]; then
+    wget -O ~/coreutils-8.22.tar.xz http://ftp.gnu.org/gnu/coreutils/coreutils-8.22.tar.xz
 fi
 
-for ARCH_NAME in mips arm x86; do
+for ARCH_NAME in x86 arm mips; do
     export ARCH_NAME
 
-    for BIN_TYPE in nopie pie; do
+    for BIN_TYPE in pie nopie; do
 
         # Start each build with a fresh source copy
         cd ~
-        rm -rf ~/inetutils-1.9
-        tar xvzf ~/inetutils-1.9.tar.gz
-        cd ~/inetutils-1.9
-
-        patch -p0 < ~/telnet-android.patch
+        rm -rf ~/coreutils-8.22
+        tar xvf ~/coreutils-8.22.tar.xz
+        cd ~/coreutils-8.22
 
         case "$ARCH_NAME" in
             
@@ -48,16 +49,35 @@ for ARCH_NAME in mips arm x86; do
         
         if [ $BIN_TYPE == "pie" ]; then
             export CFLAGS="-g -O2 -pie -fPIE"
+            # Use default target for pie binaries (currently 15/ICS)
+            unset GOOGLE_PLATFORM
         else 
             export CFLAGS="-g -O2"
+            export GOOGLE_PLATFORM=9
         fi
 
-        ./configure --host=$HOST --disable-ftp --disable-ftpd --disable-telnetd --disable-talk --disable-talkd --disable-rlogin --disable-rlogind --disable-rsh --disable-rshd --disable-rexec --disable-rexecd --disable-rcp --disable-hostname --disable-tftp --disable-tftpd --disable-ping --disable-ping6 --disable-logger --disable-syslogd --disable-inetd --disable-whois --disable-uucpd --disable-ifconfig --disable-traceroute
-        echo "#undef HAVE_STRUCT_UTMP_UT_TYPE" >> config.h
 
+        export FORCE_UNSAFE_CONFIGURE=1
+        sed -i 's/as_fn_error $? "could not determine.*/false/g' configure
+        ./configure --host=$HOST --with-gnu-ld=ald
+        echo "#define HAVE_MKFIFO 1" >> lib/config.h
+
+        sed -i 's/pw->pw_gecos/""/g' src/pinky.c
+        sed -i 's/sys\/mtio.h/linux\/mtio.h/g' src/dd.c
+        sed -i 's/#define PROGRAM_NAME "du"/#define PROGRAM_NAME "du"\n#define read_file_system_list(bool) 0/g' src/du.c
+        sed -i 's/#define PROGRAM_NAME "stat"/#define PROGRAM_NAME "stat"\n#define read_file_system_list(bool) 0/g' src/stat.c
+        sed -i 's/ fts_open /_fts_open /g' lib/xfts.c
+        sed -i 's/^fts_open /_fts_open /g' lib/fts.c
+        sed -i 's/^MANS = .*//g' Makefile
+        
         make
-        astrip telnet/telnet
-        cp telnet/telnet $TARGET/telnet-$ARCH_NAME-$BIN_TYPE
+
+        for MODULE in $(cat ~/modules); do
+            echo "Processing $MODULE"
+            astrip src/$MODULE
+            mkdir -p $TARGET/$ARCH_NAME/$BIN_TYPE
+            cp src/$MODULE $TARGET/$ARCH_NAME/$BIN_TYPE/$MODULE
+        done
 
     done
 
